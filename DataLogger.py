@@ -86,14 +86,6 @@ def MilliGToMSec(x):
     convertedValue = x / (1000 * 9.8)
     return convertedValue
 
-# Returns string of of acceleration m/sec2 in 3 axis    
-def CreateLoggerEntry():
-    dataLine = str(sampleMillisTotal) + ','
-    dataLine = dataLine + str(MilliGToMSec(accelerometer.get_x() - accCalXOffset)) + ','
-    dataLine = dataLine + str(MilliGToMSec(accelerometer.get_y() - accCalYOffset)) + ','
-    dataLine = dataLine + str(MilliGToMSec(accelerometer.get_z() - accCalZOffset)) + ','
-    return dataLine + '\n\r'
-
 # Log accel array
 def LogSampledAccelData(accelData):
     uart.write(str(accelData[0]) + ',' + str(accelData[1]) + ',' + str(accelData[2]) +  returnStr)
@@ -101,29 +93,23 @@ def LogSampledAccelData(accelData):
     #TODO remove outliers
     #todo need to pass in the calibration array here as accCalXOffset is zero
 def GetSampledAccelData(accCalOffsets):
-    
     maxTime = 1000
     sampleTime = 100
     currentTime = 0
     currentCount = 0
     sampleArray = array.array('d',[0.0,0.0,0.0])
-    
     while (currentTime < maxTime):
-        sampleArray[0] = sampleArray[0] + MilliGToMSec(accelerometer.get_x() - accCalOffsets[0])
-        sampleArray[1] = sampleArray[1] + MilliGToMSec(accelerometer.get_y() - accCalOffsets[1])
-        sampleArray[2] = sampleArray[2] + MilliGToMSec(accelerometer.get_z() - accCalOffsets[2])
-        
+        sampleArray[0] = sampleArray[0] + MilliGToMSec(accelerometer.get_x()) - accCalOffsets[0]
+        sampleArray[1] = sampleArray[1] + MilliGToMSec(accelerometer.get_y()) - accCalOffsets[1]
+        sampleArray[2] = sampleArray[2] + MilliGToMSec(accelerometer.get_z()) - accCalOffsets[2]
         sleep(sampleTime)
         currentTime = currentTime + sampleTime
         currentCount = (currentCount + 1)
-        
-    returnArray = array.array('d',[0.0,0.0,0.0])    
+    returnArray = array.array('d',[0.0,0.0,0.0])
     returnArray[0] = sampleArray[0] / currentCount
     returnArray[1] = sampleArray[1] / currentCount
     returnArray[2] = sampleArray[2] / currentCount
-    
     LogSampledAccelData(returnArray)
-    
     return returnArray
     
 # Removes built in 1g baseline and sets offsets to m/sec2
@@ -162,16 +148,8 @@ def CalibrateAccelerometer():
 calibrationArray = CalibrateAccelerometer()
 
 # Sample loop
-
-uart.write('X = ' + str(calibrationArray[0]) + returnStr)
-uart.write('Y = ' + str(calibrationArray[1]) + returnStr)
-uart.write('Z = ' + str(calibrationArray[2]) + returnStr)
-
 while (True):
     GetSampledAccelData(calibrationArray)
-
-
-
 
 while (True):
     accelData = str(CreateLoggerEntry())
