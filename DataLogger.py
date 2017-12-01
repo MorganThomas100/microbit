@@ -81,6 +81,7 @@ def DisplayEndSequence():
         sleep(displayEndSequenceMillis)
         count = count + 1
 
+
 # Converts accelerometer sensor reading to m/sec2
 def MilliGToMSec(x):
     convertedValue = x / (1000 * 9.8)
@@ -88,36 +89,65 @@ def MilliGToMSec(x):
 
 # Log accel array
 def LogSampledAccelData(accelData):
-    uart.write(str(accelData[0]) + ',' + str(accelData[1]) + ',' + str(accelData[2]) +  returnStr)
+    uart.write(str(accelData[0]) + ',' + str(accelData[1]) + ',' + str(accelData[2]) + ',' + str(accelData[3]) +  returnStr)
         
     #TODO remove outliers
-    #todo need to pass in the calibration array here as accCalXOffset is zero
+    #Returns Sampled Accelerometer data 
 def GetSampledAccelData(accCalOffsets):
-    maxTime = 1000
-    sampleTime = 100
+    maxTime = 100
+    sampleTime = 5
     currentTime = 0
     currentCount = 0
     sampleArray = array.array('d',[0.0,0.0,0.0])
+    
+    xDataList = []
+    yDataList = []
+    zDataList = []
+    
     while (currentTime < maxTime):
-        sampleArray[0] = sampleArray[0] + MilliGToMSec(accelerometer.get_x()) - accCalOffsets[0]
-        sampleArray[1] = sampleArray[1] + MilliGToMSec(accelerometer.get_y()) - accCalOffsets[1]
-        sampleArray[2] = sampleArray[2] + MilliGToMSec(accelerometer.get_z()) - accCalOffsets[2]
+        
+        xDataList.append(MilliGToMSec(accelerometer.get_x()) - accCalOffsets[0])
+        yDataList.append(MilliGToMSec(accelerometer.get_y()) - accCalOffsets[1])
+        zDataList.append(MilliGToMSec(accelerometer.get_z()) - accCalOffsets[2])
+        
         sleep(sampleTime)
         currentTime = currentTime + sampleTime
         currentCount = (currentCount + 1)
-    returnArray = array.array('d',[0.0,0.0,0.0])
-    returnArray[0] = sampleArray[0] / currentCount
-    returnArray[1] = sampleArray[1] / currentCount
-    returnArray[2] = sampleArray[2] / currentCount
+        
+    #TODO fix this lazy outlier filtering
+    
+    xDataList.sort()
+    xDataList.pop()
+    xDataList.pop(0)
+    for dataEntry in xDataList:
+        sampleArray[0] = sampleArray[0] + dataEntry
+    
+    yDataList.sort()
+    yDataList.pop()
+    yDataList.pop(0)
+    for dataEntry in yDataList:
+        sampleArray[1] = sampleArray[1] + dataEntry
+    
+    zDataList.sort()
+    zDataList.pop()
+    zDataList.pop(0)
+    for dataEntry in zDataList:
+        sampleArray[2] = sampleArray[2] + dataEntry    
+    
+    returnArray = array.array('d',[running_time(),0.0,0.0,0.0])
+    
+    returnArray[1] = sampleArray[0] / (currentCount - 2)
+    returnArray[2] = sampleArray[1] / (currentCount - 2)
+    returnArray[3] = sampleArray[2] / (currentCount - 2)
+    
     LogSampledAccelData(returnArray)
     return returnArray
     
-# Removes built in 1g baseline and sets offsets to m/sec2
-def CalibrateAccelerometer():
+# Returns an array of X,Y,Z calibration offsets in m/sec2
+# Args calibrateMillisMax is total sample period
+def CalibrateAccelerometer(calibrateMillisMax):
     calibrateMillisTotal = 0
-    calibrateMillisMax = 5000
-    calibrateMillis = 100
-
+    calibrateMillis = 1
     calibrationCounter = 0
     xSum = 0
     ySum = 0
@@ -139,17 +169,27 @@ def CalibrateAccelerometer():
     uart.write('Z = ' + str(accCalZOffset) + returnStr)
     return array.array('d',[accCalXOffset,accCalYOffset,accCalZOffset])
 
-# Main - wait for user input:
+#----------------------------------------------------
+#                       MAIN
+#----------------------------------------------------
+
 # DisplayFileSystem()
 
-#uart.write(str(a[0]))
 
-# Calibrate Accelerometer
-calibrationArray = CalibrateAccelerometer()
+
+
+
+# Calibrate Accelerometer (over a period of 5 secs)
+accelCalibrationArray = CalibrateAccelerometer(5000)
 
 # Sample loop
 while (True):
-    GetSampledAccelData(calibrationArray)
+    GetSampledAccelData(accelCalibrationArray)
+
+
+
+
+
 
 while (True):
     accelData = str(CreateLoggerEntry())
